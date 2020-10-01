@@ -1,12 +1,13 @@
 /**
  * mc2js / minecraft2javascript
  */
-#include <stdio.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
 
 void showhelp(void);
 bool parse_coords(char *s[]);
+bool sanityCheckCoords(void);
 
 struct Coords_struct
 {
@@ -24,12 +25,6 @@ struct Coords_struct
 
 int main(int argc, char *argv[])
 {
-	/**
-	 * I need 3 parameters before we parse them out
-	 * - x,y,z of the start of the world to extract
-	 * - x,y,z of the end of the world to extract
-	 * - x,y,z,degrees location of where to put the viewer with a facing direction in degrees
-	 */
 	if (argc != 4)
 	{
 		showhelp();
@@ -37,15 +32,22 @@ int main(int argc, char *argv[])
 	}
 	if (!parse_coords(argv))
 	{
-		printf("Error in command-line arguments\n");
+		printf("Error/Problem with command-line arguments\n");
 		showhelp();
 		return 1;
+	}
+
+	if (!sanityCheckCoords())
+	{
+		printf("Error/Coordinate issue. Viewer most likely not within bounding cube.\n");
+		showhelp();
 	}
 	return 0;
 }
 
 /**
- * showhelp / Shows the help if we didn't get enough parameters
+ * showhelp()
+ * Shows the help if we didn't get enough parameters
  */
 void showhelp(void)
 {
@@ -64,11 +66,11 @@ Example:\n\
 }
 
 /**
- * parse_coords / parses command-line arguments into numerical things
+ * parse_coords()
+ * parses command-line arguments into numerical things
  */
 bool parse_coords(char *s[])
 {
-	/* strtok() https://www.tutorialspoint.com/c_standard_library/c_function_strtok.htm */
 	char **endptr;
 	char *token = "\0";
 
@@ -108,6 +110,46 @@ bool parse_coords(char *s[])
 	if (token == NULL) { return false; }
 	coords.direction = strtol(token, &endptr, 10);
 	if ((coords.direction < 0) || (coords.direction > 360))
+	{
+		return false;
+	}
+	return true;
+}
+
+/*
+ * sanityCheckCoords()
+ * Make sure coords look good, start is < and end is > (looping) and viewer exists between start and finish
+ */
+bool sanityCheckCoords(void)
+{
+	signed long tmp;
+	if (coords.start_x > coords.end_x)
+	{
+		tmp = coords.start_x;
+		coords.start_x = coords.end_x;
+		coords.end_x = tmp;
+	}
+	if ((coords.start_x > coords.viewer_x) || (coords.viewer_x > coords.end_x))
+	{
+		return false;
+	}
+	if (coords.start_y > coords.end_y)
+	{
+		tmp = coords.start_y;
+		coords.start_y = coords.end_y;
+		coords.end_y = tmp;
+	}
+	if ((coords.start_y > coords.viewer_y) || (coords.viewer_y > coords.end_y))
+	{
+		return false;
+	}
+	if (coords.start_z > coords.end_z)
+	{
+		tmp = coords.start_z;
+		coords.start_z = coords.end_z;
+		coords.end_z = tmp;
+	}
+	if ((coords.start_z > coords.viewer_z) || (coords.viewer_z > coords.end_z))
 	{
 		return false;
 	}

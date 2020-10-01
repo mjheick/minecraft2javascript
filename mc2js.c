@@ -42,7 +42,18 @@ int main(int argc, char *argv[])
  */
 void showhelp(void)
 {
-	printf("mc2js / minecraft2javascript\n");
+	char *help = "\
+Usage: mc2js [s_xyz] [e_xyz] [v_xyzd]\n\n\
+Mandatory arguments:\n\
+  s_xyz    Comma-separated X,Y,Z coordinates of where to start extracting world data\n\
+  e_xyz    Comma-separated X,Y,Z coordinates of where to finish extracting world data\n\
+  v_xyzd   Comma-separated X,Y,Z coordinates of where to finish extracting world data including direction\n\
+           Direction can be NESW or a number between 0-360 for degrees\n\n\
+Example:\n\
+  mc2js 1,1,1 9,9,9 5,5,5,n\n\
+  mc2js 1,1,1 9,9,9 5,5,5,0\n\
+";
+	printf("%s", help);
 	return;
 }
 

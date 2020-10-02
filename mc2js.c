@@ -39,14 +39,14 @@ int main(int argc, char *argv[])
 	}
 	if (!parse_coords(argv))
 	{
-		printf("Error/Problem with command-line arguments\n");
+		fprintf(stderr, "Error/Problem with command-line arguments\n");
 		showhelp();
 		return 1;
 	}
 
 	if (!sanityCheckCoords())
 	{
-		printf("Error/Coordinate issue. Viewer most likely not within bounding cube.\n");
+		fprintf(stderr, "Error/Coordinate issue. Viewer most likely not within bounding cube.\n");
 		showhelp();
 	}
 	for (y = coords.start_y; y <= coords.end_y; y++)
@@ -182,7 +182,7 @@ char *getBlock(long x, long y, long z)
 	mcaFile = readMcaFile(mcaFilename);
 	if (mcaFile == NULL)
 	{
-		printf("Error/%s not found for block (%d,%d,%d)\n", mcaFilename, x, y, z);
+		fprintf(stderr, "Error/%s not found for block (%d,%d,%d)\n", mcaFilename, x, y, z);
 		return NULL;
 	}
 

@@ -14,6 +14,7 @@ char *getMcaFilename(long x, long z);
 char *readMcaFile(char *filename);
 void showhelp(void);
 
+/* Our coordinates that we're going to be working with, in real-world units */
 struct Coords_struct
 {
 	long start_x;
@@ -26,7 +27,18 @@ struct Coords_struct
 	long viewer_y;
 	long viewer_z;
 	long direction;
-} coords;
+} _coords;
+
+/* We shouldn't need more than 4 files loaded in memory at /any/ time */
+#define MCAFILEMAX 4
+
+struct MCAFiles
+{
+	char *filename;
+	long file_length;
+	char *file_contents;
+	bool loaded;
+} _mcafile[MCAFILEMAX];
 
 int main(int argc, char *argv[])
 {
@@ -49,11 +61,19 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Error/Coordinate issue. Viewer most likely not within bounding cube.\n");
 		showhelp();
 	}
-	for (y = coords.start_y; y <= coords.end_y; y++)
+
+	/* Initialize mcafile[] */
+	for (x = 0; x < MCAFILEMAX; x++)
 	{
-		for (x = coords.start_x; x <= coords.end_x; x++)
+		_mcafile[x].loaded = false;
+	}
+
+	/* Loop through our coordinates and build our stuff */
+	for (y = _coords.start_y; y <= _coords.end_y; y++)
+	{
+		for (x = _coords.start_x; x <= _coords.end_x; x++)
 		{
-			for (z = coords.start_z; z <= coords.end_z; z++)
+			for (z = _coords.start_z; z <= _coords.end_z; z++)
 			{
 				block = getBlock(x, y, z);
 			}
@@ -91,42 +111,42 @@ bool parse_coords(char *s[])
 	char **endptr;
 	char *token = "\0";
 
-	/* s[1] is going to go to coords.start_[xyz] */
+	/* s[1] is going to go to _coords.start_[xyz] */
 	token = strtok(s[1], ",");
 	if (token == NULL) { return false; }
-	coords.start_x = strtol(token, &endptr, 10);
+	_coords.start_x = strtol(token, &endptr, 10);
 	token = strtok(NULL, ",");
 	if (token == NULL) { return false; }
-	coords.start_y = strtol(token, &endptr, 10);
+	_coords.start_y = strtol(token, &endptr, 10);
 	token = strtok(NULL, ",");
 	if (token == NULL) { return false; }
-	coords.start_z = strtol(token, &endptr, 10);
+	_coords.start_z = strtol(token, &endptr, 10);
 
-	/* s[2] is going to go to coords.end_[xyz] */
+	/* s[2] is going to go to _coords.end_[xyz] */
 	token = strtok(s[2], ",");
 	if (token == NULL) { return false; }
-	coords.end_x = strtol(token, &endptr, 10);
+	_coords.end_x = strtol(token, &endptr, 10);
 	token = strtok(NULL, ",");
 	if (token == NULL) { return false; }
-	coords.end_y = strtol(token, &endptr, 10);
+	_coords.end_y = strtol(token, &endptr, 10);
 	token = strtok(NULL, ",");
 	if (token == NULL) { return false; }
-	coords.end_z = strtol(token, &endptr, 10);
+	_coords.end_z = strtol(token, &endptr, 10);
 
-	/* s[3] is going to go to coords.viewer_[xyzd] */
+	/* s[3] is going to go to _coords.viewer_[xyzd] */
 	token = strtok(s[3], ",");
 	if (token == NULL) { return false; }
-	coords.viewer_x = strtol(token, &endptr, 10);
+	_coords.viewer_x = strtol(token, &endptr, 10);
 	token = strtok(NULL, ",");
 	if (token == NULL) { return false; }
-	coords.viewer_y = strtol(token, &endptr, 10);
+	_coords.viewer_y = strtol(token, &endptr, 10);
 	token = strtok(NULL, ",");
 	if (token == NULL) { return false; }
-	coords.viewer_z = strtol(token, &endptr, 10);
+	_coords.viewer_z = strtol(token, &endptr, 10);
 	token = strtok(NULL, ",");
 	if (token == NULL) { return false; }
-	coords.direction = strtol(token, &endptr, 10);
-	if ((coords.direction < 0) || (coords.direction > 360))
+	_coords.direction = strtol(token, &endptr, 10);
+	if ((_coords.direction < 0) || (_coords.direction > 360))
 	{
 		return false;
 	}
@@ -135,38 +155,38 @@ bool parse_coords(char *s[])
 
 /*
  * sanityCheckCoords()
- * Make sure coords look good, start is < and end is > (looping) and viewer exists between start and finish
+ * Make sure _coords look good, start is < and end is > (looping) and viewer exists between start and finish
  */
 bool sanityCheckCoords(void)
 {
 	long tmp;
-	if (coords.start_x > coords.end_x)
+	if (_coords.start_x > _coords.end_x)
 	{
-		tmp = coords.start_x;
-		coords.start_x = coords.end_x;
-		coords.end_x = tmp;
+		tmp = _coords.start_x;
+		_coords.start_x = _coords.end_x;
+		_coords.end_x = tmp;
 	}
-	if ((coords.start_x > coords.viewer_x) || (coords.viewer_x > coords.end_x))
-	{
-		return false;
-	}
-	if (coords.start_y > coords.end_y)
-	{
-		tmp = coords.start_y;
-		coords.start_y = coords.end_y;
-		coords.end_y = tmp;
-	}
-	if ((coords.start_y > coords.viewer_y) || (coords.viewer_y > coords.end_y))
+	if ((_coords.start_x > _coords.viewer_x) || (_coords.viewer_x > _coords.end_x))
 	{
 		return false;
 	}
-	if (coords.start_z > coords.end_z)
+	if (_coords.start_y > _coords.end_y)
 	{
-		tmp = coords.start_z;
-		coords.start_z = coords.end_z;
-		coords.end_z = tmp;
+		tmp = _coords.start_y;
+		_coords.start_y = _coords.end_y;
+		_coords.end_y = tmp;
 	}
-	if ((coords.start_z > coords.viewer_z) || (coords.viewer_z > coords.end_z))
+	if ((_coords.start_y > _coords.viewer_y) || (_coords.viewer_y > _coords.end_y))
+	{
+		return false;
+	}
+	if (_coords.start_z > _coords.end_z)
+	{
+		tmp = _coords.start_z;
+		_coords.start_z = _coords.end_z;
+		_coords.end_z = tmp;
+	}
+	if ((_coords.start_z > _coords.viewer_z) || (_coords.viewer_z > _coords.end_z))
 	{
 		return false;
 	}
@@ -188,10 +208,6 @@ char *getBlock(long x, long y, long z)
 
 	/* We have a file. Lets see if the chunk data exists within the file */
 
-
-	/* Clear up some mallocs() */
-	free(mcaFile);
-	free(mcaFilename);
 	return "\0";
 }
 
@@ -218,14 +234,28 @@ char *getMcaFilename(long x, long z)
  */
 char *readMcaFile(char *filename)
 {
+	/* We have a global struct to cache loaded files */
+	int f;
 	FILE *fp;
 	long file_length = 0;
 	long fread_elements = 0;
 	char *file_contents;
 
+	for (f = 0; f < MCAFILEMAX; f++)
+	{
+		if (_mcafile[f].loaded)
+		{
+			if (strcmp(_mcafile[f].filename, filename) == 0)
+			{
+				return _mcafile[f].file_contents;
+			}
+		}
+	}
+
 	fp = fopen(filename, "rb");
 	if (fp == NULL)
 	{
+		fprintf(stderr, "Error/failed to open %s for binary reading\n", filename);
 		return NULL;
 	}
 	fseek(fp, 0L, SEEK_END);
@@ -234,6 +264,7 @@ char *readMcaFile(char *filename)
 	file_contents = malloc(file_length);
 	if (file_contents == NULL)
 	{
+		fprintf(stderr, "Error/Could not malloc() %d bytes of memory for loading %s\n", file_length, filename);
 		return NULL;
 	}
 
@@ -241,7 +272,23 @@ char *readMcaFile(char *filename)
 	fclose(fp);
 	if (fread_elements != 1)
 	{
+		fprintf(stderr, "Error/Had an issue with reading all the data from %s into memory\n", filename);
 		return NULL;
 	}
+
+	/* cache this in _mcafile */
+	for (f = 0; f < MCAFILEMAX; f++)
+	{
+		if (!_mcafile[f].loaded)
+		{
+			_mcafile[f].filename = filename;
+			_mcafile[f].file_length = file_length;
+			_mcafile[f].loaded = true;
+			_mcafile[f].file_contents = file_contents;
+			return _mcafile[f].file_contents;
+		}
+	}
+	/* If we got here, we couldn't cache this file in memory. return contents anyways */
+	fprintf(stderr, "Error/Had an issue with caching %s, maybe increase MCAFILEMAX(=%d now) and recompile\n", filename, MCAFILEMAX);
 	return file_contents;
-}
+}  

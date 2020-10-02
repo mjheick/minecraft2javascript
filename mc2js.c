@@ -182,6 +182,7 @@ char *getBlock(long x, long y, long z)
 	mcaFile = readMcaFile(mcaFilename);
 	if (mcaFile == NULL)
 	{
+		printf("Error/%s not found for block (%d,%d,%d)\n", mcaFilename, x, y, z);
 		return NULL;
 	}
 

@@ -21,4 +21,7 @@ start_xyz and end_xyz are going to be juggled to create a navigatable box to ext
 
 If viewer_xyzd is outside the world, it'll be a real bad experience.
 
+# References
 
+[https://stackoverflow.com/questions/1484896/php-gzinflate-in-c]
+[https://www.zlib.net/zlib_how.html]

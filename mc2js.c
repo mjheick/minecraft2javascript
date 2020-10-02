@@ -1,30 +1,37 @@
 /**
  * mc2js / minecraft2javascript
  */
+#include <malloc.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
-void showhelp(void);
 bool parse_coords(char *s[]);
 bool sanityCheckCoords(void);
+char *getBlock(long x, long y, long z);
+char *getMcaFilename(long x, long z);
+char *readMcaFile(char *filename);
+void showhelp(void);
 
 struct Coords_struct
 {
-	signed long start_x;
-	signed long start_y;
-	signed long start_z;
-	signed long end_x;
-	signed long end_y;
-	signed long end_z;
-	signed long viewer_x;
-	signed long viewer_y;
-	signed long viewer_z;
-	signed long direction;
+	long start_x;
+	long start_y;
+	long start_z;
+	long end_x;
+	long end_y;
+	long end_z;
+	long viewer_x;
+	long viewer_y;
+	long viewer_z;
+	long direction;
 } coords;
 
 int main(int argc, char *argv[])
 {
+	long x, y, z; /* For looping */
+	char *block;
 	if (argc != 4)
 	{
 		showhelp();
@@ -41,6 +48,16 @@ int main(int argc, char *argv[])
 	{
 		printf("Error/Coordinate issue. Viewer most likely not within bounding cube.\n");
 		showhelp();
+	}
+	for (y = coords.start_y; y <= coords.end_y; y++)
+	{
+		for (x = coords.start_x; x <= coords.end_x; x++)
+		{
+			for (z = coords.start_z; z <= coords.end_z; z++)
+			{
+				block = getBlock(x, y, z);
+			}
+		}
 	}
 	return 0;
 }
@@ -122,7 +139,7 @@ bool parse_coords(char *s[])
  */
 bool sanityCheckCoords(void)
 {
-	signed long tmp;
+	long tmp;
 	if (coords.start_x > coords.end_x)
 	{
 		tmp = coords.start_x;
@@ -154,4 +171,76 @@ bool sanityCheckCoords(void)
 		return false;
 	}
 	return true;
+}
+
+char *getBlock(long x, long y, long z)
+{
+	/* Based on x/z we need to be able to calculate the mca file to read */
+	char *mcaFilename;
+	char *mcaFile;
+	mcaFilename = getMcaFilename(x, z);
+	mcaFile = readMcaFile(mcaFilename);
+	if (mcaFile == NULL)
+	{
+		return NULL;
+	}
+
+	/* We have a file. Lets see if the chunk data exists within the file */
+
+
+	/* Clear up some mallocs() */
+	free(mcaFile);
+	free(mcaFilename);
+	return "\0";
+}
+
+/**
+ * getMcaFilename()
+ * Take x and z world coordinates and return back a mca filename to open up
+ */
+char *getMcaFilename(long x, long z)
+{
+	/* A chunk is 16x16x16 */
+	char *regionFilename = malloc(20); /* r.-xxxxx.-zzzzz.mcr\0 = 20 */
+	double chunkX = floor((double)x / 16.0);
+	double chunkZ = floor((double)z / 16.0);
+	long regionX = (long)floor(chunkX / 32.0);
+	long regionZ = (long)floor(chunkZ / 32.0);
+	sprintf(regionFilename, "r.%d.%d.mcr", regionX, regionZ);
+	return regionFilename;
+}
+
+/**
+ * readMcaFile()
+ * Reads /technically/ any file into memory, assuming we have free memory
+ * We really want a .mca file in the same directory this script is run in
+ */
+char *readMcaFile(char *filename)
+{
+	FILE *fp;
+	long file_length = 0;
+	long fread_elements = 0;
+	char *file_contents;
+
+	fp = fopen(filename, "rb");
+	if (fp == NULL)
+	{
+		return NULL;
+	}
+	fseek(fp, 0L, SEEK_END);
+	file_length = ftell(fp);
+	rewind(fp);
+	file_contents = malloc(file_length);
+	if (file_contents == NULL)
+	{
+		return NULL;
+	}
+
+	fread_elements = fread(file_contents, file_length, 1, fp);
+	fclose(fp);
+	if (fread_elements != 1)
+	{
+		return NULL;
+	}
+	return file_contents;
 }

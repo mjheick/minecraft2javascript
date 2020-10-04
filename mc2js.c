@@ -16,10 +16,11 @@
 bool parse_coords(char *s[]);
 bool sanityCheckCoords(void);
 char *getBlock(long x, long y, long z);
-char *getMcaFilename(long x, long z);
-char *readMcaFile(char *filename);
 char *getChunk(char *file_contents, long x, long z);
 char *getChunkBytes(char *mcaData, long offset, long count);
+char *getMcaFilename(long x, long z);
+char *readMcaFile(char *filename);
+long bytes2num(char *data, long cnt);
 void showhelp(void);
 
 /* Our coordinates that we're going to be working with, in real-world units */
@@ -320,19 +321,76 @@ char *getChunk(char *file_contents, long x, long z)
 {
 	/* translate x and z to chunk coordinates, 0 >= [x|z] > 31 */
 	long chunkX, chunkZ, chunkOffset;
+	long loopX, loopZ;
 	long chunkDataStart, chunkDataLength;
-	while (x > 511) { x = x - 512; }
-	while (z > 511) { z = z - 512; }
-	chunkX = (long)(floor(x / 16));
-	chunkZ = (long)(floor(z / 16));
-	chunkOffset = (4 * ((chunkX % 32) + (chunkZ % 32) * 32)); /* This is the location in the NBT data to find this chunk information */
-
+	long chunkLength, chunkCompression;
+	char *chunkData;
+	while (x > 511) { x = x - 512; } while (x < -511) { x = x + 512; }
+	while (z > 511) { z = z - 512; } while (z < 511) { z = z + 512; }
+	chunkX = (long)(floor(x / 16)); chunkZ = (long)(floor(z / 16));
+	/* We have to go through the entire file and find out where this chunk data is */
+	for (loopZ = 0; loopZ < 31; loopZ++)
+	{
+		for (loopX = 0; loopX < 31; loopX++)
+		{
+			chunkOffset = (4 * ((loopX % 32) + (loopZ % 32) * 32)); /* This is the location in the NBT data to find this chunk information */
+			chunkDataStart = bytes2num(getChunkBytes(file_contents, chunkOffset, 3), 3) * 4096;
+			chunkDataLength = bytes2num(getChunkBytes(file_contents, chunkOffset + 3, 1), 1) * 4096;
+			if ((chunkDataStart == 0) && (chunkDataLength == 0))
+			{
+				continue;
+			}
+			chunkLength = bytes2num(getChunkBytes(file_contents, chunkDataStart, 4), 4); /* 4 bytes: length of chunk */
+			chunkCompression = bytes2num(getChunkBytes(file_contents, chunkDataStart + 4, 1), 1); /* 1 byte: compression of data */
+			chunkData = getChunkBytes(file_contents, chunkDataStart + 5, chunkLength); /* chunkData should already be malloc()'d */
+			if (chunkCompression == 2) /* gzinflate */
+			{
+				
+			}
+			else
+			{
+				fprintf(stderr, "Error/chunk[%d,%d] is using unsupported compression=%d\n", loopX, loopZ, chunkCompression);
+				continue;
+			}
+		}
+	}
 	return NULL;
 }
 
+/**
+ * Extract count bytes from char* starting at offset
+ */
 char *getChunkBytes(char *mcaData, long offset, long count)
 {
-	char *chunkData;
+	if (count <= 0)
+	{
+		return NULL;
+	}
+	char *chunkData = malloc(count);
+	mcaData = mcaData + offset;
+	memcpy(chunkData, mcaData, count);
+	return chunkData;
+}
 
-	return NULL;
+/**
+ * Convert a series of cnt bytes into a usable number, big-endian
+ */
+long bytes2num(char *data, long cnt)
+{
+	long num = 0, byte, x;
+	for (x = 0; x < cnt; x++)
+	{
+		num <<= 8;
+		byte = 0;
+		if ((data[x] & 0x80) == 0x80) { byte += 128; }
+		if ((data[x] & 0x40) == 0x40) { byte += 64; }
+		if ((data[x] & 0x20) == 0x20) { byte += 32; }
+		if ((data[x] & 0x10) == 0x10) { byte += 16; }
+		if ((data[x] & 0x08) == 0x08) { byte += 8; }
+		if ((data[x] & 0x04) == 0x04) { byte += 4; }
+		if ((data[x] & 0x02) == 0x02) { byte += 2; }
+		if ((data[x] & 0x01) == 0x01) { byte += 1; }
+		num |= byte;
+	}
+	return num;
 }

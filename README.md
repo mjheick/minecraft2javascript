@@ -1,4 +1,5 @@
 # minecraft2javascript
+
 Lets grab a portion of a minecraft world and allow it to be navigated in a browser
 
 This is specific to Java edition
@@ -9,7 +10,7 @@ There is an included makefile, so just run make to compile
 
 # Usage
 
-mc2js start_xyz end_xyz viewerxyzd
+mc2js start_xyz end_xyz viewer_xyzd
 
 start_xyz - A comma-separated list of starting X, Y, and Z coordinates to extract from the world
 
@@ -23,5 +24,10 @@ If viewer_xyzd is outside the world, it'll be a real bad experience.
 
 # References
 
-[https://stackoverflow.com/questions/1484896/php-gzinflate-in-c]
-[https://www.zlib.net/zlib_how.html]
+* [https://stackoverflow.com/questions/1484896/php-gzinflate-in-c]
+* [https://www.zlib.net/zlib_how.html]
+* [https://minecraft.gamepedia.com/Anvil_file_format]
+* [https://minecraft.gamepedia.com/Region_file_format]
+* [https://minecraft.gamepedia.com/Chunk_format]
+* [https://minecraft.gamepedia.com/NBT_format]
+* [https://web.archive.org/web/20110723210920/http://www.minecraft.net/docs/NBT.txt]

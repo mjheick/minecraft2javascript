@@ -1,5 +1,11 @@
 /**
  * mc2js / minecraft2javascript
+ *
+ * https://minecraft.gamepedia.com/Anvil_file_format
+ * https://minecraft.gamepedia.com/Region_file_format
+ * https://minecraft.gamepedia.com/Chunk_format
+ * https://minecraft.gamepedia.com/NBT_format
+ * https://web.archive.org/web/20110723210920/http://www.minecraft.net/docs/NBT.txt
  */
 #include <malloc.h>
 #include <math.h>
@@ -12,6 +18,8 @@ bool sanityCheckCoords(void);
 char *getBlock(long x, long y, long z);
 char *getMcaFilename(long x, long z);
 char *readMcaFile(char *filename);
+char *getChunk(char *file_contents, long x, long z);
+char *getChunkBytes(char *mcaData, long offset, long count);
 void showhelp(void);
 
 /* Our coordinates that we're going to be working with, in real-world units */
@@ -44,6 +52,11 @@ int main(int argc, char *argv[])
 {
 	long x, y, z; /* For looping */
 	char *block;
+	if ((sizeof x) < 8)
+	{
+		fprintf(stderr, "Error/Need to run on 64-bit system\n");
+		return 1;
+	}
 	if (argc != 4)
 	{
 		showhelp();
@@ -195,19 +208,27 @@ bool sanityCheckCoords(void)
 
 char *getBlock(long x, long y, long z)
 {
-	/* Based on x/z we need to be able to calculate the mca file to read */
 	char *mcaFilename;
 	char *mcaFile;
-	mcaFilename = getMcaFilename(x, z);
-	mcaFile = readMcaFile(mcaFilename);
+	char *chunkData;
+	mcaFilename = getMcaFilename(x, z); /* Based on x/z we need to be able to calculate the mca file to read */
+	mcaFile = readMcaFile(mcaFilename); /* Read the file */
 	if (mcaFile == NULL)
 	{
 		fprintf(stderr, "Error/%s not found for block (%d,%d,%d)\n", mcaFilename, x, y, z);
 		return NULL;
 	}
 
-	/* We have a file. Lets see if the chunk data exists within the file */
-
+	/**
+	 * We have a file. Lets see if the chunk data exists within the file.
+	 * It'll be an X/Z search, then a Y search within the chunk.
+	 */
+	chunkData = getChunk(mcaFile, x, z); /* This will translate world x/z into specific chunk coords in mcaFile */
+	if (chunkData == NULL)
+	{
+		fprintf(stderr, "Error/Chunk could not be found in %s for x=%d,z=%d\n", mcaFilename, x, z);
+		return NULL;
+	}
 	return "\0";
 }
 
@@ -218,12 +239,10 @@ char *getBlock(long x, long y, long z)
 char *getMcaFilename(long x, long z)
 {
 	/* A chunk is 16x16x16 */
-	char *regionFilename = malloc(20); /* r.-xxxxx.-zzzzz.mcr\0 = 20 */
-	double chunkX = floor((double)x / 16.0);
-	double chunkZ = floor((double)z / 16.0);
-	long regionX = (long)floor(chunkX / 32.0);
-	long regionZ = (long)floor(chunkZ / 32.0);
-	sprintf(regionFilename, "r.%d.%d.mcr", regionX, regionZ);
+	char *regionFilename = malloc(20); /* r.-xxxxx.-zzzzz.mca\0 = 20 */
+	long regionX = (long)(floor((double)x / 512.0));
+	long regionZ = (long)(floor((double)z / 512.0));
+	sprintf(regionFilename, "r.%d.%d.mca", regionX, regionZ);
 	return regionFilename;
 }
 
@@ -291,4 +310,29 @@ char *readMcaFile(char *filename)
 	/* If we got here, we couldn't cache this file in memory. return contents anyways */
 	fprintf(stderr, "Error/Had an issue with caching %s, maybe increase MCAFILEMAX(=%d now) and recompile\n", filename, MCAFILEMAX);
 	return file_contents;
-}  
+}
+
+/**
+ * Read chunk location and determine where the offset of the chunk data is going to be
+ * If chunk doesn't exist, return 0, otherwise, return offset
+ */
+char *getChunk(char *file_contents, long x, long z)
+{
+	/* translate x and z to chunk coordinates, 0 >= [x|z] > 31 */
+	long chunkX, chunkZ, chunkOffset;
+	long chunkDataStart, chunkDataLength;
+	while (x > 511) { x = x - 512; }
+	while (z > 511) { z = z - 512; }
+	chunkX = (long)(floor(x / 16));
+	chunkZ = (long)(floor(z / 16));
+	chunkOffset = (4 * ((chunkX % 32) + (chunkZ % 32) * 32)); /* This is the location in the NBT data to find this chunk information */
+
+	return NULL;
+}
+
+char *getChunkBytes(char *mcaData, long offset, long count)
+{
+	char *chunkData;
+
+	return NULL;
+}

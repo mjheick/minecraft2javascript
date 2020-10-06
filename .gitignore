@@ -1,2 +1,7 @@
 mc2js
 *.mcr
+
+# ln -s zlib-1.2.11 zlib
+zlib
+zlib-1.2.11
+

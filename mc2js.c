@@ -7,11 +7,13 @@
  * https://minecraft.gamepedia.com/NBT_format
  * https://web.archive.org/web/20110723210920/http://www.minecraft.net/docs/NBT.txt
  */
+#include <assert.h>
 #include <malloc.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include "zlib/zlib.h"
 
 bool parse_coords(char *s[]);
 bool sanityCheckCoords(void);
@@ -19,9 +21,20 @@ char *getBlock(long x, long y, long z);
 char *getChunk(char *file_contents, long x, long z);
 char *getChunkBytes(char *mcaData, long offset, long count);
 char *getMcaFilename(long x, long z);
+char *gzInflate(char *buffer, long length);
 char *readMcaFile(char *filename);
 long bytes2num(char *data, long cnt);
 void showhelp(void);
+
+/* copypasta from zpipe.c */
+#if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(__CYGWIN__)
+#  include <fcntl.h>
+#  include <io.h>
+#  define SET_BINARY_MODE(file) setmode(fileno(file), O_BINARY)
+#else
+#  define SET_BINARY_MODE(file)
+#endif
+#define gzCHUNK 16384
 
 /* Our coordinates that we're going to be working with, in real-world units */
 struct Coords_struct
@@ -324,7 +337,7 @@ char *getChunk(char *file_contents, long x, long z)
 	long loopX, loopZ;
 	long chunkDataStart, chunkDataLength;
 	long chunkLength, chunkCompression;
-	char *chunkData;
+	char *chunkData, *nbtData;
 	while (x > 511) { x = x - 512; } while (x < -511) { x = x + 512; }
 	while (z > 511) { z = z - 512; } while (z < 511) { z = z + 512; }
 	chunkX = (long)(floor(x / 16)); chunkZ = (long)(floor(z / 16));
@@ -345,7 +358,8 @@ char *getChunk(char *file_contents, long x, long z)
 			chunkData = getChunkBytes(file_contents, chunkDataStart + 5, chunkLength); /* chunkData should already be malloc()'d */
 			if (chunkCompression == 2) /* gzinflate */
 			{
-				
+				nbtData = gzInflate(chunkData, chunkLength);
+				free(nbtData); /* We're done with this */
 			}
 			else
 			{
@@ -393,4 +407,65 @@ long bytes2num(char *data, long cnt)
 		num |= byte;
 	}
 	return num;
+}
+
+/**
+ * Adapted from zpipe.c for inflating deflated data
+ */
+char *gzInflate(char *buffer, long length)
+{
+	int ret;
+	unsigned have;
+	z_stream strm;
+	unsigned char *out;
+	
+	out = malloc(gzCHUNK);
+
+	/* allocate inflate state */
+	strm.zalloc = Z_NULL;
+	strm.zfree = Z_NULL;
+	strm.opaque = Z_NULL;
+	strm.avail_in = 0;
+	strm.next_in = Z_NULL;
+	ret = inflateInit(&strm);
+	if (ret != Z_OK)
+	{
+		fprintf(stderr, "Error/gzInflate had error after inflateInit()");
+		return NULL;
+	}
+
+	/* decompress until deflate stream ends or end of file */
+	do {
+		strm.avail_in = length;
+		if (strm.avail_in == 0)
+			break;
+		strm.next_in = buffer;
+
+		/* run inflate() on input until output buffer not full */
+		do {
+			strm.avail_out = gzCHUNK;
+			strm.next_out = out;
+			ret = inflate(&strm, Z_NO_FLUSH);
+			assert(ret != Z_STREAM_ERROR);  /* state not clobbered */
+			switch (ret) {
+				case Z_NEED_DICT:
+					fprintf(stderr, "Error/gzInflate returned Z_NEED_DICT during inflate()");
+					(void)inflateEnd(&strm);
+					return NULL;
+				case Z_DATA_ERROR:
+					fprintf(stderr, "Error/gzInflate returned Z_DATA_ERROR during inflate()");
+					(void)inflateEnd(&strm);
+					return NULL;
+				case Z_MEM_ERROR:
+					fprintf(stderr, "Error/gzInflate returned Z_MEM_ERROR during inflate()");
+					(void)inflateEnd(&strm);
+					return NULL;
+			}
+			have = gzCHUNK - strm.avail_out;
+		} while (strm.avail_out == 0);
+		/* done when inflate() says it's done */
+	} while (ret != Z_STREAM_END);
+	(void)inflateEnd(&strm);
+
+	return out;
 }

@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-lm -I.
+CFLAGS=-I. -lm -lz
 
 mc2js: mc2js.c
 	$(CC) -o mc2js mc2js.c $(CFLAGS)

@@ -6,7 +6,9 @@ This is specific to Java edition
 
 # Compiling
 
-There is an included makefile, so just run make to compile
+requires zlib. built and tested with zlib 1.2.11 https://zlib.net
+
+Run make to complile. 'nuff said
 
 # Usage
 
